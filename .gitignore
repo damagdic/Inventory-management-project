@@ -1,0 +1,42 @@
+# === Python ===
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.pyi
+*.egg-info/
+.eggs/
+.build/
+dist/
+pip-wheel-metadata/
+
+# Virtual env
+.venv/
+venv/
+env/
+
+# Jupyter / tools
+.ipynb_checkpoints/
+.mypy_cache/
+.pytest_cache/
+.coverage*
+htmlcov/
+
+# Logs
+*.log
+
+# Local settings / secrets
+*.env
+.env.*
+!example.env
+
+# === VS Code ===
+.vscode/
+!.vscode/extensions.json
+!.vscode/settings.json
+!.vscode/launch.json
+
+# === OS / misc ===
+.DS_Store
+Thumbs.db
