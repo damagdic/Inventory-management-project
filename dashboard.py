@@ -5,6 +5,7 @@ from tkinter.ttk import Combobox
 import tkinter.ttk as ttk
 from ulaz_skladiste_hladnjaca import ulaz_hladnjaca_form
 from izlaz_skladiste_hladnjaca import izlaz_hladnjaca_form
+from stanje_skladiste_hladnjaca import provjeri_stanje_hladnjaca
 
 #funcionality part
 
@@ -27,7 +28,7 @@ def skladiste_hladnjaca():
     izlaz_button = Button(midFrame, text="Izlaz robe", bg='white', font=("times new roman", 15), fg = "black", command=lambda: izlaz_hladnjaca_form(window))
     izlaz_button.pack(fill=X)
 
-    provjeri_stanje_button = Button(midFrame, text="Provjeri Stanje", bg='white', font=("times new roman", 15), fg = "black")
+    provjeri_stanje_button = Button(midFrame, text="Provjeri Stanje", bg='white', font=("times new roman", 15), fg = "black", command=lambda: provjeri_stanje_hladnjaca(window))
     provjeri_stanje_button.pack(fill=X)
 
     statistika_button = Button(midFrame, text="Statistika", bg='white', font=("times new roman", 15), fg = "black")
