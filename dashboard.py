@@ -4,6 +4,7 @@ from tkcalendar import DateEntry
 from tkinter.ttk import Combobox
 import tkinter.ttk as ttk
 from ulaz_skladiste_hladnjaca import ulaz_hladnjaca_form
+from izlaz_skladiste_hladnjaca import izlaz_hladnjaca_form
 
 #funcionality part
 
@@ -23,7 +24,7 @@ def skladiste_hladnjaca():
     ulaz_button = Button(midFrame, text="Ulaz robe", bg='white', font=("times new roman", 15), fg = "black", command=lambda : ulaz_hladnjaca_form(window))
     ulaz_button.pack(fill=X)
 
-    izlaz_button = Button(midFrame, text="Izlaz robe", bg='white', font=("times new roman", 15), fg = "black")
+    izlaz_button = Button(midFrame, text="Izlaz robe", bg='white', font=("times new roman", 15), fg = "black", command=lambda: izlaz_hladnjaca_form(window))
     izlaz_button.pack(fill=X)
 
     provjeri_stanje_button = Button(midFrame, text="Provjeri Stanje", bg='white', font=("times new roman", 15), fg = "black")
