@@ -6,6 +6,7 @@ import tkinter.ttk as ttk
 from ulaz_skladiste_hladnjaca import ulaz_hladnjaca_form
 from izlaz_skladiste_hladnjaca import izlaz_hladnjaca_form
 from stanje_skladiste_hladnjaca import provjeri_stanje_hladnjaca
+from kontakti_view import kontakti_screen
 
 #funcionality part
 
@@ -100,6 +101,9 @@ skladiste_hladnjaca_button.pack(fill=X)
 
 skladiste_pogon_button = Button(midFrame, text="Skladište Pogon", bg='white', font=("times new roman", 15), fg = "black", command=skladiste_pogon)
 skladiste_pogon_button.pack(fill=X)
+
+kontakti_button = Button(midFrame, text="Kontakti", bg='white', font=("times new roman", 15), fg="black", command=lambda: kontakti_screen(window))
+kontakti_button.pack(fill=X)
 
 exit_button = Button(midFrame, text="Izlaz", bg='white', font=("times new roman", 15), fg = "black")
 exit_button.pack(fill=X)
