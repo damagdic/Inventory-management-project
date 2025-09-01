@@ -2,30 +2,43 @@
 from __future__ import annotations
 from typing import List, Tuple, Optional, Dict, Any
 from datetime import date
-from model import get_conn
+from model import Proizvod, get_conn
+from model import Kontakt
 
 # -----------------------------
 # Pomoćni dohvat za comboboxe/listinge
 # -----------------------------
 
-def fetch_kontakti(term: Optional[str] = None) -> List[Dict[str, Any]]:
-    sql = "SELECT idKontakt, naziv FROM Kontakt"
+def fetch_kontakti(term: Optional[str] = None) -> List[Kontakt]:
+    sql = "SELECT idKontakt, naziv, OIB, adresa, kontaktOsoba, telefon FROM Kontakt"
     params: list[Any] = []
     if term:
         sql += " WHERE naziv LIKE %s"
         params.append(f"%{term}%")
     sql += " ORDER BY naziv"
+
     conn = get_conn()
     try:
         with conn.cursor(dictionary=True) as cur:
             cur.execute(sql, params)
-            return cur.fetchall()
+            rows = cur.fetchall()
+        result: List[Kontakt] = []
+        for r in rows:
+            result.append(Kontakt(
+                idKontakt=r['idKontakt'],
+                naziv=r['naziv'],
+                OIB=r['OIB'],
+                adresa=r['adresa'],
+                kontaktOsoba=r['kontaktOsoba'],
+                telefon=r['telefon']
+            ))
+        return result
     finally:
         conn.close()
 
 
-def fetch_proizvodi(term: Optional[str] = None) -> List[Dict[str, Any]]:
-    sql = "SELECT idProizvod, naziv FROM Proizvod"
+def fetch_proizvodi(term: Optional[str] = None) -> List[Proizvod]:
+    sql = "SELECT idProizvod, naziv, idJedinicaMjere FROM Proizvod"
     params: list[Any] = []
     if term:
         sql += " WHERE naziv LIKE %s"
@@ -35,7 +48,8 @@ def fetch_proizvodi(term: Optional[str] = None) -> List[Dict[str, Any]]:
     try:
         with conn.cursor(dictionary=True) as cur:
             cur.execute(sql, params)
-            return cur.fetchall()
+            rows = cur.fetchall()
+            return [Proizvod(idProizvod=r['idProizvod'], naziv=r['naziv'], idJedinicaMjere=r['idJedinicaMjere']) for r in rows]   
     finally:
         conn.close()
 
@@ -59,65 +73,33 @@ def list_kontakti(term: Optional[str] = None) -> List[Dict[str, Any]]:
         conn.close()
 
 
-def create_kontakt(naziv: str, oib: Optional[str], adresa: Optional[str],
-                   kontakt_osoba: Optional[str], telefon: Optional[str]) -> int:
-    naziv = (naziv or "").strip()
-    if not naziv:
-        raise ValueError("Naziv je obavezan.")
-    oib_val = (oib or "").strip() or None  # kolona OIB neka bude CHAR(11) NULL
-    conn = get_conn()
-    try:
-        with conn.cursor() as cur:
-            cur.execute("""
-                INSERT INTO Kontakt (naziv, OIB, adresa, kontaktOsoba, telefon)
-                VALUES (%s, %s, %s, %s, %s)
-            """, (naziv, oib_val, adresa, kontakt_osoba, telefon))
-            conn.commit()
-            return cur.lastrowid
-    except:
-        conn.rollback()
-        raise
-    finally:
-        conn.close()
-
+def create_kontakt(naziv: str, oib: Optional[str],
+                   adresa: Optional[str], kontakt_osoba: Optional[str],
+                   telefon: Optional[str]) -> int:
+    k = Kontakt(idKontakt=None, naziv=naziv, OIB=oib, adresa=adresa,
+                kontaktOsoba=kontakt_osoba, telefon=telefon)
+    return k.save()
+     
 
 def update_kontakt(idKontakt: int, naziv: str, oib: Optional[str],
                    adresa: Optional[str], kontakt_osoba: Optional[str],
                    telefon: Optional[str]) -> None:
-    naziv = (naziv or "").strip()
-    if not naziv:
-        raise ValueError("Naziv je obavezan.")
-    oib_val = (oib or "").strip() or None
-    conn = get_conn()
-    try:
-        with conn.cursor() as cur:
-            cur.execute("""
-                UPDATE Kontakt
-                   SET naziv=%s, OIB=%s, adresa=%s, kontaktOsoba=%s, telefon=%s
-                 WHERE idKontakt=%s
-            """, (naziv, oib_val, adresa, kontakt_osoba, telefon, idKontakt))
-            conn.commit()
-    except:
-        conn.rollback()
-        raise
-    finally:
-        conn.close()
+    k = Kontakt.get(idKontakt)
+    if not k:
+        raise ValueError("Kontakt ne postoji.")
+    k.naziv = naziv
+    k.OIB = oib
+    k.adresa = adresa
+    k.kontaktOsoba = kontakt_osoba
+    k.telefon = telefon
+    k.save()
 
 
 def delete_kontakt(idKontakt: int) -> None:
-    conn = get_conn()
-    try:
-        with conn.cursor() as cur:
-            cur.execute("DELETE FROM Kontakt WHERE idKontakt=%s", (idKontakt,))
-            conn.commit()
-    except Exception as e:
-        conn.rollback()
-        # 1451 = Cannot delete or update a parent row (FK)
-        if getattr(e, "errno", None) == 1451:
-            raise ValueError("Kontakt je povezan s dokumentima (narudžbe/otpremnice) i ne može se obrisati.")
-        raise
-    finally:
-        conn.close()
+    k = Kontakt.get(idKontakt)
+    if not k:
+        return
+    k.delete()
 
 # -----------------------------
 # ULAZ – Narudzba + DetaljiNarudzbe

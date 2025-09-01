@@ -12,6 +12,7 @@ try:
 except Exception:
     _HAS_CAL = False
 
+from model import Kontakt
 from presenter import (
     # zajednički
     fetch_kontakti, fetch_proizvodi,
@@ -66,29 +67,29 @@ class UlazHladnjaca(Frame):
         self.place(x=0, y=0)
 
         Label(self, text="Ulaz robe Hladnjača", bg='blue', fg='white',
-              font=("times new roman", 24, "bold")).place(x=0, y=0, relwidth=1)
+            font=("times new roman", 24, "bold")).place(x=0, y=0, relwidth=1)
 
         Button(self, text="Natrag", command=self.destroy).place(x=10, y=10)
 
         # lijevo – forma
         left = Frame(self, bg='white'); left.place(x=10, y=50, width=380, height=500)
         Label(left, text="Unos podataka", bg='white',
-              font=("times new roman", 20)).grid(row=0, column=0, columnspan=2, padx=10, pady=10)
+            font=("times new roman", 20)).grid(row=0, column=0, columnspan=2, padx=10, pady=10)
 
         # kontakt
         Label(left, text="Kontakt:", bg='white').grid(row=1, column=0, sticky='e', padx=10, pady=6)
         self.kontakti = fetch_kontakti()
-        self.kontakt_id_by_name = {k["naziv"]: k["idKontakt"] for k in self.kontakti}
+        self.kontakt_id_by_name = {k.naziv: k.idKontakt for k in self.kontakti}
         self.kontakt_var = StringVar()
-        self.cb_kontakt = ttk.Combobox(left, textvariable=self.kontakt_var, values=list(self.kontakt_id_by_name.keys()), state="readonly")
+        self.cb_kontakt = ttk.Combobox(left, textvariable=self.kontakt_var, values=[k.naziv for k in self.kontakti], state="readonly")
         self.cb_kontakt.grid(row=1, column=1, sticky='w', padx=10, pady=6)
 
         # proizvod
         Label(left, text="Proizvod:", bg='white').grid(row=2, column=0, sticky='e', padx=10, pady=6)
         self.proizvodi = fetch_proizvodi()
-        self.proizvod_id_by_name = {p["naziv"]: p["idProizvod"] for p in self.proizvodi}
+        self.proizvod_id_by_name = {p.naziv: p.idProizvod for p in self.proizvodi}
         self.proizvod_var = StringVar()
-        self.cb_proizvod = ttk.Combobox(left, textvariable=self.proizvod_var, values=list(self.proizvod_id_by_name.keys()), state="readonly")
+        self.cb_proizvod = ttk.Combobox(left, textvariable=self.proizvod_var, values=[p.naziv for p in self.proizvodi], state="readonly")
         self.cb_proizvod.grid(row=2, column=1, sticky='w', padx=10, pady=6)
 
         # kolicina
@@ -107,7 +108,7 @@ class UlazHladnjaca(Frame):
         # desno – lista + update
         right = Frame(self, bg='white'); right.place(x=410, y=50, width=380, height=500)
         Label(right, text="Popis ulaza", bg='white',
-              font=("times new roman", 20)).place(x=10, y=10)
+            font=("times new roman", 20)).place(x=10, y=10)
 
         tv_container = Frame(right, bg='white'); tv_container.place(x=10, y=50, width=360, height=400)
         self.tv = ttk.Treeview(tv_container, columns=("row_id","idNar","idKon","idPro","kontakt","proizvod","kolicina","datum_primitka"), show='headings')
@@ -228,7 +229,7 @@ class IzlazHladnjaca(Frame):
         self.place(x=0, y=0)
 
         Label(self, text="Izlaz robe Hladnjača", bg='blue', fg='white',
-              font=("times new roman", 24, "bold")).place(x=0, y=0, relwidth=1)
+            font=("times new roman", 24, "bold")).place(x=0, y=0, relwidth=1)
         Button(self, text="Natrag", command=self.destroy).place(x=10, y=10)
 
         left = Frame(self, bg='white'); left.place(x=10, y=50, width=380, height=500)
@@ -236,16 +237,16 @@ class IzlazHladnjaca(Frame):
 
         Label(left, text="Kontakt:", bg='white').grid(row=1, column=0, sticky='e', padx=10, pady=6)
         self.kontakti = fetch_kontakti()
-        self.kontakt_id_by_name = {k["naziv"]: k["idKontakt"] for k in self.kontakti}
+        self.kontakt_id_by_name = {k.naziv: k.idKontakt for k in self.kontakti}
         self.kontakt_var = StringVar()
-        self.cb_kontakt = ttk.Combobox(left, textvariable=self.kontakt_var, values=list(self.kontakt_id_by_name.keys()), state="readonly")
+        self.cb_kontakt = ttk.Combobox(left, textvariable=self.kontakt_var, values=[k.naziv for k in self.kontakti], state="readonly")
         self.cb_kontakt.grid(row=1, column=1, sticky='w', padx=10, pady=6)
 
         Label(left, text="Proizvod:", bg='white').grid(row=2, column=0, sticky='e', padx=10, pady=6)
         self.proizvodi = fetch_proizvodi()
-        self.proizvod_id_by_name = {p["naziv"]: p["idProizvod"] for p in self.proizvodi}
+        self.proizvod_id_by_name = {p.naziv: p.idProizvod for p in self.proizvodi}
         self.proizvod_var = StringVar()
-        self.cb_proizvod = ttk.Combobox(left, textvariable=self.proizvod_var, values=list(self.proizvod_id_by_name.keys()), state="readonly")
+        self.cb_proizvod = ttk.Combobox(left, textvariable=self.proizvod_var, values=[p.naziv for p in self.proizvodi], state="readonly")
         self.cb_proizvod.grid(row=2, column=1, sticky='w', padx=10, pady=6)
 
         Label(left, text="Količina:", bg='white').grid(row=3, column=0, sticky='e', padx=10, pady=6)
@@ -372,7 +373,7 @@ class StanjeHladnjaca(Frame):
         super().__init__(master, bg='white', width=800, height=600)
         self.place(x=0, y=0)
         Label(self, text="Stanje – Hladnjača", bg='blue', fg='white',
-              font=("times new roman", 24, "bold")).place(x=0, y=0, relwidth=1)
+            font=("times new roman", 24, "bold")).place(x=0, y=0, relwidth=1)
         Button(self, text="Natrag", command=self.destroy).place(x=10, y=10)
 
         search = Frame(self, bg='white'); search.place(x=10, y=60, width=780, height=40)
@@ -424,12 +425,12 @@ class KontaktiScreen(Frame):
         super().__init__(master, bg='white', width=800, height=600)
         self.place(x=0, y=0)
         Label(self, text="Kontakti", bg='blue', fg='white',
-              font=("times new roman", 24, "bold")).place(x=0, y=0, relwidth=1)
+            font=("times new roman", 24, "bold")).place(x=0, y=0, relwidth=1)
         Button(self, text="Natrag", command=self.destroy).place(x=10, y=10)
 
         left = Frame(self, bg='white'); left.place(x=10, y=60, width=360, height=520)
         Label(left, text="Dodaj/Ažuriraj kontakt", bg='white',
-              font=("times new roman", 14, "bold")).grid(row=0, column=0, columnspan=2, pady=(0,10), sticky='w')
+            font=("times new roman", 14, "bold")).grid(row=0, column=0, columnspan=2, pady=(0,10), sticky='w')
 
         Label(left, text="Naziv*", bg='white').grid(row=1, column=0, sticky='e', padx=6, pady=4)
         self.e_naziv = Entry(left, width=30); self.e_naziv.grid(row=1, column=1, sticky='w', padx=6, pady=4)
@@ -473,16 +474,16 @@ class KontaktiScreen(Frame):
             self.tv.heading(col, text=title); self.tv.column(col, width=w, anchor=anc)
 
         self.tv.bind("<<TreeviewSelect>>", self.on_select)
-        self._selected_id: Optional[int] = None
+        self._selected_id: Kontakt | None = None
 
         self.load_list()
 
-    def load_list(self):
-        rows = list_kontakti(term=self.term_var.get().strip() or None)
+    def load_list(self, term: str | None = None):
         self.tv.delete(*self.tv.get_children())
-        for r in rows:
+        self._rows: list[Kontakt] = fetch_kontakti(term)  
+        for k in self._rows:
             self.tv.insert("", "end", values=(
-                r["idKontakt"], r["naziv"], r["OIB"], r["adresa"], r["kontaktOsoba"], r["telefon"]
+                k.idKontakt, k.naziv, k.OIB or "", k.adresa or "", k.kontaktOsoba or "", k.telefon or ""
             ))
 
     def on_select(self, _=None):
@@ -491,23 +492,30 @@ class KontaktiScreen(Frame):
             self._selected_id = None
             return
         vals = self.tv.item(sel[0], "values")
-        self._selected_id = int(vals[0])
-        self.e_naziv.delete(0, END);   self.e_naziv.insert(0, vals[1] or "")
-        self.e_oib.delete(0, END);     self.e_oib.insert(0, "" if vals[2] in (None,"None") else str(vals[2]))
-        self.e_adresa.delete(0, END);  self.e_adresa.insert(0, vals[3] or "")
-        self.e_kosoba.delete(0, END);  self.e_kosoba.insert(0, vals[4] or "")
-        self.e_telefon.delete(0, END); self.e_telefon.insert(0, vals[5] or "")
+        idk = int(vals[0])
+        found = next((x for x in getattr(self, "_rows", []) if x.idKontakt == idk), None)
+        if found is None:
+            found = Kontakt.get(idk)
+        self._selected_id = found
+        self.e_naziv.delete(0, END);   self.e_naziv.insert(0, found.naziv or "")
+        self.e_oib.delete(0, END);     self.e_oib.insert(0, found.OIB or "")
+        self.e_adresa.delete(0, END);  self.e_adresa.insert(0, found.adresa or "")
+        self.e_kosoba.delete(0, END);  self.e_kosoba.insert(0, found.kontaktOsoba or "")
+        self.e_telefon.delete(0, END); self.e_telefon.insert(0, found.telefon or "")
 
     def on_save(self):
         try:
-            new_id = create_kontakt(
+            k = Kontakt(
+                idKontakt=None,
                 naziv=self.e_naziv.get(),
-                oib=self.e_oib.get(),
+                OIB=self.e_oib.get(),
                 adresa=self.e_adresa.get(),
-                kontakt_osoba=self.e_kosoba.get(),
+                kontaktOsoba=self.e_kosoba.get(),
                 telefon=self.e_telefon.get()
             )
+            new_id = k.save()  # INSERT u save()
             messagebox.showinfo("OK", f"Kontakt dodan (ID: {new_id}).")
+            self._selected_id = k
             self.load_list()
         except Exception as e:
             messagebox.showerror("Greška", str(e))
@@ -517,14 +525,13 @@ class KontaktiScreen(Frame):
             messagebox.showwarning("Upozorenje", "Odaberite kontakt.")
             return
         try:
-            update_kontakt(
-                idKontakt=self._selected_id,
-                naziv=self.e_naziv.get(),
-                oib=self.e_oib.get(),
-                adresa=self.e_adresa.get(),
-                kontakt_osoba=self.e_kosoba.get(),
-                telefon=self.e_telefon.get()
-            )
+            k = self._selected_id 
+            k.naziv = self.e_naziv.get()
+            k.OIB = self.e_oib.get()
+            k.adresa = self.e_adresa.get()
+            k.kontaktOsoba = self.e_kosoba.get()
+            k.telefon = self.e_telefon.get()
+            k.save()  
             messagebox.showinfo("OK", "Kontakt ažuriran.")
             self.load_list()
         except Exception as e:
@@ -537,9 +544,9 @@ class KontaktiScreen(Frame):
         if not messagebox.askyesno("Potvrda", "Obrisati odabrani kontakt?"):
             return
         try:
-            delete_kontakt(self._selected_id)
-            messagebox.showinfo("OK", "Kontakt obrisan.")
+            self._selected_id.delete()
             self._selected_id = None
+            messagebox.showinfo("OK", "Kontakt obrisan.")
             self.load_list()
         except Exception as e:
             messagebox.showerror("Greška", str(e))
@@ -556,7 +563,7 @@ class Dashboard(Tk):
         self.config(bg='white')
 
         Label(self, text="Kontrola ulaza i izlaza", bg='blue',
-              font=("times new roman", 24, "bold"), fg="white").place(x=0,y=0,relwidth=1)
+            font=("times new roman", 24, "bold"), fg="white").place(x=0,y=0,relwidth=1)
 
         mid = Frame(self, bg='white'); mid.place(x=200, y=200, width=400, height=520)
 

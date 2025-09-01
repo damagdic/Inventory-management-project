@@ -4,10 +4,10 @@ from dataclasses import dataclass
 from typing import Optional
 
 DB_CONFIG = {
-    "host": os.getenv("DB_HOST", "petagimnazija.hr"),
-    "user": os.getenv("DB_USER", "petagimnazijahr_root"),
+    "host": os.getenv("DB_HOST", "localhost"),
+    "user": os.getenv("DB_USER", "root"),
     "password": os.getenv("DB_PASS", "Salopekselo2"),
-    "database": os.getenv("DB_NAME", "petagimnazijahr_SkladisteDB"),
+    "database": os.getenv("DB_NAME", "skladistedb"),
     "port": int(os.getenv("DB_PORT", "3306")),
 }
 
@@ -128,7 +128,27 @@ class Kontakt:
     kontaktOsoba: Optional[str] = None
     telefon: Optional[str] = None
 
+    @staticmethod
+    def _norm_str(val: Optional[str]) -> Optional[str]:
+        v = (val or "").strip()
+        return v if v else None
+
+    def validate(self) -> None:
+        if not self.naziv or not self.naziv.strip():
+            raise ValueError("Naziv je obavezan")
+        if self.OIB:
+            o = self.OIB.strip()
+            if not o.isdigit():
+                raise ValueError("OIB smije sadržavati samo znamenke.")
+            self.OIB = o
+
     def save(self) -> int:
+        self.validate()
+        self.naziv = self._norm_str(self.naziv) or ""
+        self.OIB = self._norm_str(self.OIB)
+        self.adresa = self._norm_str(self.adresa)
+        self.kontaktOsoba = self._norm_str(self.kontaktOsoba)
+        self.telefon = self._norm_str(self.telefon)
         conn = get_conn()
         try:
             with conn.cursor() as cur:
