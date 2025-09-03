@@ -2,8 +2,12 @@
 from __future__ import annotations
 from typing import List, Tuple, Optional, Dict, Any
 from datetime import date
-from model import Proizvod, get_conn
-from model import Kontakt
+from model import (
+    get_conn,
+    Kontakt, Proizvod,
+    Narudzba, DetaljiNarudzbe,
+    Otpremnica, DetaljiOtpremnice,
+)
 
 # -----------------------------
 # Pomoćni dohvat za comboboxe/listinge
@@ -110,30 +114,22 @@ def create_ulaz(
     datumNarudzbe: str,      # 'YYYY-MM-DD'
     datumPrimitka: str,      # 'YYYY-MM-DD'
     stavke: List[Tuple[int, int]],   # [(idProizvod, kolicina), ...]
-) -> int:
+) -> Narudzba:
     """
     Trigeri na DetaljiNarudzbe rade +stanje.
     """
-    conn = get_conn()
-    try:
-        with conn.cursor() as cur:
-            cur.execute("""
-                INSERT INTO Narudzba (idKontakt, datumNarudzbe, datumPrimitka)
-                VALUES (%s, %s, %s)
-            """, (idKontakt, datumNarudzbe, datumPrimitka))
-            idNar = cur.lastrowid
-            for pid, qty in stavke:
-                cur.execute("""
-                    INSERT INTO DetaljiNarudzbe (idNarudzba, idProizvod, kolicina)
-                    VALUES (%s, %s, %s)
-                """, (idNar, pid, qty))
-        conn.commit()
-        return idNar
-    except:
-        conn.rollback()
-        raise
-    finally:
-        conn.close()
+    n = Narudzba(idNarudzba=None, idKontakt=idKontakt, datumNarudzbe=datumNarudzbe, datumPrimitka=datumPrimitka)
+    n.save()
+    for pid, qty in stavke:
+        det = DetaljiNarudzbe(
+            idDetaljiNarudzbe=None,
+            idNarudzba=n.idNarudzba,
+            idProizvod=pid,
+            kolicina=qty
+        )
+        det.save()  
+
+    return n
 
 
 def update_ulaz(
@@ -145,28 +141,18 @@ def update_ulaz(
     new_datumNarudzbe: str,    # 'YYYY-MM-DD'
     new_datumPrimitka: str,    # 'YYYY-MM-DD'
 ) -> None:
-    """
-    Trigeri na DetaljiNarudzbe koregiraju zalihe (delta/promjena proizvoda).
-    """
-    conn = get_conn()
-    try:
-        with conn.cursor() as cur:
-            cur.execute("""
-                UPDATE DetaljiNarudzbe
-                   SET idProizvod=%s, kolicina=%s
-                 WHERE idDetaljiNarudzbe=%s
-            """, (new_idProizvod, new_kolicina, row_id))
-            cur.execute("""
-                UPDATE Narudzba
-                   SET idKontakt=%s, datumNarudzbe=%s, datumPrimitka=%s
-                 WHERE idNarudzba=%s
-            """, (new_idKontakt, new_datumNarudzbe, new_datumPrimitka, idNarudzba))
-        conn.commit()
-    except:
-        conn.rollback()
-        raise
-    finally:
-        conn.close()
+    det = DetaljiNarudzbe.get(row_id)
+    det.idProizvod = new_idProizvod
+    det.kolicina = new_kolicina
+    det.save()
+
+    n = Narudzba.get(idNarudzba)
+    if not n:
+        raise ValueError("Narudzba ne postoji.")
+    n.idKontakt = new_idKontakt
+    n.datumNarudzbe = new_datumNarudzbe
+    n.datumPrimitka = new_datumPrimitka
+    n.save()
 
 
 def fetch_ulazi(limit: int = 200) -> List[Dict[str, Any]]:
@@ -179,7 +165,7 @@ def fetch_ulazi(limit: int = 200) -> List[Dict[str, Any]]:
         k.naziv AS kontakt,
         p.naziv AS proizvod,
         dn.kolicina AS kolicina,
-        DATE_FORMAT(n.datumPrimitka, '%%d.%%m.%%Y') AS datum_primitka
+        DATE_FORMAT(n.datumPrimitka, '%d.%m.%Y') AS datum_primitka,
     FROM DetaljiNarudzbe dn
     JOIN Narudzba  n ON n.idNarudzba = dn.idNarudzba
     JOIN Proizvod  p ON p.idProizvod = dn.idProizvod
@@ -219,37 +205,24 @@ def create_izlaz(
     datumIsporuke: str,             # 'YYYY-MM-DD'
     brojOtpremnice: str,
     stavke: List[Tuple[int, int, Optional[float]]],   # [(idProizvod, kolicina, cijena_kom or None), ...]
-) -> int:
+) -> Otpremnica:
     """
-    datumOtpremnice se automatski stavlja na današnji datum.
-    Trigeri na DetaljiOtpremnice rade -stanje i blokiraju minus.
+    Kreira otpremnicu i detaljeotpremnice objektno
+    Triggeri rade -stanje i blokiraju minus
     """
-    # (opcionalno) prije-insert provjera da izbjegnemo ružnu DB grešku
+
     for pid, qty, _ in stavke:
         if not _can_issue(pid, qty):
             raise ValueError("Nedovoljno na skladištu za neke stavke.")
 
     today = date.today().strftime("%Y-%m-%d")
-    conn = get_conn()
-    try:
-        with conn.cursor() as cur:
-            cur.execute("""
-                INSERT INTO Otpremnica (idKontakt, datumOtpremnice, datumIsporuke, brojOtpremnice)
-                VALUES (%s, %s, %s, %s)
-            """, (idKontakt, today, datumIsporuke, brojOtpremnice))
-            idOt = cur.lastrowid
-            for pid, qty, cij in stavke:
-                cur.execute("""
-                    INSERT INTO DetaljiOtpremnice (idOtpremnica, idProizvod, kolicina, cijena)
-                    VALUES (%s, %s, %s, %s)
-                """, (idOt, pid, qty, cij))
-        conn.commit()
-        return idOt
-    except:
-        conn.rollback()
-        raise
-    finally:
-        conn.close()
+    
+    ot = Otpremnica(idOtpremnica=None, idKontakt=idKontakt, datumOtpremnice=today, datumIsporuke=datumIsporuke, brojOtpremnice=brojOtpremnice)
+    ot.save()
+    for pid, qty, cij in stavke:
+        det = DetaljiOtpremnice(idDetaljiOtpremnice=None, idOtpremnica=ot.idOtpremnica, idProizvod=pid, kolicina=qty, cijena=cij)
+        det.save()
+    return ot
 
 
 def update_izlaz(
@@ -262,29 +235,28 @@ def update_izlaz(
     new_brojOtpremnice: str,
 ) -> None:
     """
-    Trigeri na DetaljiOtpremnice koregiraju zalihe (delta/promjena proizvoda).
+    Ažurira Otpremnicu i DetaljiOtpremnice
+    Trigeri na DetaljiOtpremnice korigiraju zalihe
     """
-    conn = get_conn()
-    try:
-        with conn.cursor() as cur:
-            # zaglavlje najprije (datumOtpremnice ostaje kakav jest)
-            cur.execute("""
-                UPDATE Otpremnica
-                   SET idKontakt=%s, datumIsporuke=%s, brojOtpremnice=%s
-                 WHERE idOtpremnica=%s
-            """, (new_idKontakt, new_datumIsporuke, new_brojOtpremnice, idOtpremnica))
-            # detalj
-            cur.execute("""
-                UPDATE DetaljiOtpremnice
-                   SET idProizvod=%s, kolicina=%s
-                 WHERE idDetaljiOtpremnice=%s
-            """, (new_idProizvod, new_kolicina, row_id))
-        conn.commit()
-    except:
-        conn.rollback()
-        raise
-    finally:
-        conn.close()
+    det = DetaljiOtpremnice.get(row_id)
+    if det.idProizvod == new_idProizvod:
+        delta = new_kolicina - det.kolicina
+        if delta > 0 and not _can_issue(new_idProizvod, delta):
+            raise ValueError("Nedovoljno na skladištu za povećanje količine.")
+    else:
+        if not _can_issue(new_idProizvod, new_kolicina):
+            raise ValueError("Nedovoljno na skladištu za odabrani proizvod.")
+    det.idProizvod = new_idProizvod
+    det.kolicina = new_kolicina
+    det.save()
+
+    n = Otpremnica.get(idOtpremnica)
+    if not n:
+        raise ValueError("Otpremnica ne postoji.")
+    n.idKontakt = new_idKontakt
+    n.datumIsporuke = new_datumIsporuke
+    n.brojOtpremnice = new_brojOtpremnice
+    n.save()
 
 
 def fetch_izlazi(limit: int = 200) -> List[Dict[str, Any]]:
@@ -298,7 +270,7 @@ def fetch_izlazi(limit: int = 200) -> List[Dict[str, Any]]:
         p.naziv AS proizvod,
         doo.kolicina AS kolicina,
         o.brojOtpremnice AS broj_otpremnice,
-        DATE_FORMAT(o.datumIsporuke, '%%d.%%m.%%Y') AS datum_isporuke
+        DATE_FORMAT(o.datumIsporuke, '%d.%m.%Y') AS datum_isporuke
     FROM DetaljiOtpremnice doo
     JOIN Otpremnica o ON o.idOtpremnica = doo.idOtpremnica
     JOIN Proizvod  p ON p.idProizvod   = doo.idProizvod

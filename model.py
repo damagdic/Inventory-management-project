@@ -117,6 +117,27 @@ class Proizvod:
                                FROM Proizvod ORDER BY naziv""")
                 return cur.fetchall()
         finally: conn.close()
+    
+    @staticmethod
+    def get(idProizvod: int) -> Optional["Proizvod"]:
+        conn = get_conn()
+        try:
+            with conn.cursor(dictionary=True) as cur:
+                cur.execute("""SELECT idProizvod, naziv, idJedinicaMjere,
+                                      StanjeNaSkladistu, cijena
+                               FROM Proizvod WHERE idProizvod=%s""",
+                            (idProizvod,))
+                r = cur.fetchone()
+                if not r:
+                    return None
+                return Proizvod(
+                    idProizvod=r["idProizvod"],
+                    naziv=r["naziv"],
+                    idJedinicaMjere=r["idJedinicaMjere"],
+                    StanjeNaSkladistu=r["StanjeNaSkladistu"],
+                    cijena=r["cijena"]
+                )
+        finally: conn.close()
 
 # ===== Kontakt ===============================================================
 @dataclass
@@ -169,6 +190,29 @@ class Kontakt:
             conn.commit()
             return self.idKontakt
         finally: conn.close()
+
+    @staticmethod
+    def get(idKontakt: int) -> Optional["Kontakt"]:
+        conn = get_conn()
+        try:
+            with conn.cursor(dictionary=True) as cur:
+                cur.execute("""
+                    SELECT idKontakt, naziv, OIB, adresa, kontaktOsoba, telefon
+                    FROM Kontakt WHERE idKontakt=%s
+                """, (idKontakt,))
+                r = cur.fetchone()
+                if not r:
+                    return None
+                return Kontakt(
+                    idKontakt=r["idKontakt"],
+                    naziv=r["naziv"],
+                    OIB=r["OIB"],
+                    adresa=r["adresa"],
+                    kontaktOsoba=r["kontaktOsoba"],
+                    telefon=r["telefon"]
+                )
+        finally:
+            conn.close()
 
     def delete(self):
         if not self.idKontakt: return
@@ -243,6 +287,25 @@ class Narudzba:
                             (limit,))
                 return cur.fetchall()
         finally: conn.close()
+    
+    @staticmethod
+    def get(idNarudzba: int) -> Optional["Narudzba"]:
+        conn = get_conn()
+        try:
+            with conn.cursor(dictionary=True) as cur:
+                cur.execute("""SELECT idNarudzba, idKontakt, datumNarudzbe, datumPrimitka
+                               FROM Narudzba WHERE idNarudzba=%s""",
+                            (idNarudzba,))
+                r = cur.fetchone()
+                if not r:
+                    return None
+                return Narudzba(
+                    idNarudzba=r["idNarudzba"],
+                    idKontakt=r["idKontakt"],
+                    datumNarudzbe=r["datumNarudzbe"],
+                    datumPrimitka=r["datumPrimitka"]
+                )
+        finally: conn.close()
 
 
 # ===== DetaljiNarudzbe =======================================================
@@ -282,7 +345,28 @@ class DetaljiNarudzbe:
                             (self.idDetaljiNarudzbe,))
             conn.commit()
         finally: conn.close()
-
+    
+    @classmethod
+    def get(cls, pk: int) -> Optional["DetaljiNarudzbe"]:
+        conn = get_conn()
+        try:
+            with conn.cursor(dictionary=True) as cur:
+                cur.execute("""
+                    SELECT idDetaljiNarudzbe, idNarudzba, idProizvod, kolicina
+                    FROM DetaljiNarudzbe
+                    WHERE idDetaljiNarudzbe=%s
+                """, (pk,))
+                r = cur.fetchone()
+                if not r:
+                    return None
+                return cls(
+                    idDetaljiNarudzbe=r["idDetaljiNarudzbe"],
+                    idNarudzba=r["idNarudzba"],
+                    idProizvod=r["idProizvod"],
+                    kolicina=r["kolicina"]
+                )
+        finally:
+            conn.close()
 
 # ===== Otpremnica ============================================================
 @dataclass
@@ -325,6 +409,26 @@ class Otpremnica:
             conn.commit()
         finally: conn.close()
 
+    @staticmethod
+    def get(idOtpremnica: int) -> Optional["Otpremnica"]:
+        conn = get_conn()
+        try:
+            with conn.cursor(dictionary=True) as cur:
+                cur.execute("""SELECT idOtpremnica, idKontakt, datumOtpremnice, datumIsporuke, brojOtpremnice
+                               FROM Otpremnica WHERE idOtpremnica=%s""",
+                            (idOtpremnica,))
+                r = cur.fetchone()
+                if not r:
+                    return None
+                return Otpremnica(
+                    idOtpremnica=r["idOtpremnica"],
+                    idKontakt=r["idKontakt"],
+                    datumOtpremnice=r["datumOtpremnice"],
+                    datumIsporuke=r["datumIsporuke"],
+                    brojOtpremnice=r["brojOtpremnice"]
+                )
+        finally: conn.close()
+
 
 # ===== DetaljiOtpremnice =====================================================
 @dataclass
@@ -365,6 +469,28 @@ class DetaljiOtpremnice:
                             (self.idDetaljiOtpremnice,))
             conn.commit()
         finally: conn.close()
+    
+    def get(cls, pk: int) -> Optional["DetaljiOtpremnice"]:
+        conn = get_conn()
+        try:
+            with conn.cursor(dictionary=True) as cur:
+                cur.execute("""
+                    SELECT idDetaljiOtpremnice, idOtpremnica, idProizvod, kolicina, cijena
+                    FROM DetaljiOtpremnice
+                    WHERE idDetaljiOtpremnice=%s
+                """, (pk,))
+                r = cur.fetchone()
+                if not r:
+                    return None
+                return cls(
+                    idDetaljiOtpremnice=r["idDetaljiOtpremnice"],
+                    idOtpremnica=r["idOtpremnica"],
+                    idProizvod=r["idProizvod"],
+                    kolicina=r["kolicina"],
+                    cijena=r["cijena"]
+                )
+        finally:
+            conn.close()
 
 
 # ===== Recept ================================================================

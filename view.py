@@ -12,7 +12,7 @@ try:
 except Exception:
     _HAS_CAL = False
 
-from model import Kontakt
+from model import Kontakt, Proizvod
 from presenter import (
     # zajednički
     fetch_kontakti, fetch_proizvodi,
@@ -43,7 +43,6 @@ def _get_date_widget(parent):
         de = DateEntry(parent, date_pattern='dd.mm.yyyy')
         de.set_date(date.today())
         return de
-    # Fallback bez tkcalendar-a: obični Entry sa već formatiranim tekstom
     e = Entry(parent)
     e.insert(0, date.today().strftime("%d.%m.%Y"))
     return e
@@ -51,9 +50,8 @@ def _get_date_widget(parent):
 def _get_date_iso(widget) -> str:
     """Vrati 'YYYY-MM-DD' iz widgeta (DateEntry ili Entry)."""
     if _HAS_CAL and isinstance(widget, DateEntry):
-        d = widget.get_date()                  # -> datetime.date
+        d = widget.get_date()              
         return d.strftime("%Y-%m-%d")
-    # ako je obični Entry, očekujemo 'dd.mm.yyyy' tekst:
     return datetime.strptime(widget.get().strip(), "%d.%m.%Y").strftime("%Y-%m-%d")
 
 
@@ -152,14 +150,13 @@ class UlazHladnjaca(Frame):
             d_pr = _get_date_iso(self.w_dat_pr)
             d_na = _get_date_iso(self.w_dat_na)
 
-
-            idNar = create_ulaz(
+            nar = create_ulaz(
                 idKontakt=idKontakt,
                 datumNarudzbe=d_na,
                 datumPrimitka=d_pr,
                 stavke=[(idProizvod, kolicina)]
             )
-            messagebox.showinfo("OK", f"Narudžba #{idNar} spremljena.")
+            messagebox.showinfo("OK", f"Narudžba #{nar.idNarudzba} spremljena.")
             self.load_ulazi()
         except Exception as e:
             messagebox.showerror("Greška", str(e))
@@ -178,7 +175,7 @@ class UlazHladnjaca(Frame):
         if not sel: return
         vals = self.tv.item(sel[0], "values")
         # redoslijed: row_id,idNar,idKon,idPro,kontakt,proizvod,kolicina,dat_pr
-        _, _, _, _, kontakt, proizvod, kolicina, dat_pr = vals
+        _, dat_nar, _, _, kontakt, proizvod, kolicina, dat_pr = vals
         self.kontakt_var.set(kontakt)
         self.proizvod_var.set(proizvod)
         self.e_kolicina.delete(0, END); self.e_kolicina.insert(0, kolicina)
@@ -211,7 +208,7 @@ class UlazHladnjaca(Frame):
                 idNarudzba=int(idNar),
                 new_idKontakt=int(idKontakt),
                 new_idProizvod=int(idProizvod),
-                new_kolicina=kolicina,
+                new_kolicina=int(kolicina),
                 new_datumNarudzbe=d_na,
                 new_datumPrimitka=d_pr
             )
@@ -307,7 +304,7 @@ class IzlazHladnjaca(Frame):
                 brojOtpremnice=broj,
                 stavke=[(idProizvod, kolicina, None)]
             )
-            messagebox.showinfo("OK", f"Otpremnica #{idOt} spremljena.")
+            messagebox.showinfo("OK", f"Otpremnica #{idOt.brojOtpremnice} spremljena.")
             self.load_izlazi()
         except Exception as e:
             messagebox.showerror("Greška", str(e))
@@ -562,20 +559,130 @@ class Dashboard(Tk):
         self.resizable(False, False)
         self.config(bg='white')
 
-        Label(self, text="Kontrola ulaza i izlaza", bg='blue',
-            font=("times new roman", 24, "bold"), fg="white").place(x=0,y=0,relwidth=1)
+        self.header = Label(self, text="Kontrola ulaza i izlaza",
+                            bg='blue', fg='white',
+                            font=("times new roman", 24, "bold"))
+        self.header.place(x=0, y=0, relwidth=1, height=60)
 
-        mid = Frame(self, bg='white'); mid.place(x=200, y=200, width=400, height=520)
+        self.content = Frame(self, bg='white')
+        self.content.place(x=0, y=60, relwidth=1, relheight=1)
 
-        Button(mid, text="Ulaz (Hladnjača)", command=lambda: UlazHladnjaca(self)).pack(fill='x')
-        Button(mid, text="Izlaz (Hladnjača)", command=lambda: IzlazHladnjaca(self)).pack(fill='x')
-        Button(mid, text="Provjeri stanje", command=lambda: StanjeHladnjaca(self)).pack(fill='x')
-        Button(mid, text="Kontakti", command=lambda: KontaktiScreen(self)).pack(fill='x')
-        Button(mid, text="Izlaz", command=self.destroy).pack(fill='x')
+        self.show_main_menu()
+
+    def _clear_content(self):
+        for w in self.content.winfo_children():
+            w.destroy()
+
+    def show_main_menu(self):
+        self._clear_content()
+
+        wrap = Frame(self.content, bg='white')
+        wrap.place(relx=0.5, rely=0.5, anchor='center')
+
+        Label(wrap, text="Dobrodošli!", bg='white',
+              font=("times new roman", 18, "bold")).pack(pady=(0, 16))
+
+        btn_width = 26
+        pady = 6
+
+        Button(wrap, text="Skladište Hladnjača",
+               font=("times new roman", 14),
+               command=self.show_hladnjaca_menu,
+               width=btn_width).pack(pady=pady, fill='x')
+
+        Button(wrap, text="Skladište Pogon",
+               font=("times new roman", 14),
+               state="disabled",  # ili command=self.show_pogon_menu 
+               width=btn_width).pack(pady=pady, fill='x')
+
+        Button(wrap, text="Kontakti",
+               font=("times new roman", 14),
+               command=lambda: KontaktiScreen(self),
+               width=btn_width).pack(pady=pady, fill='x')
+
+        Button(wrap, text="Izlaz",
+               font=("times new roman", 14),
+               command=self.destroy,
+               width=btn_width).pack(pady=(pady, 0), fill='x')
+    
+    def show_pogon_menu(self):
+        self._clear_content()
+
+        wrap = Frame(self.content, bg='white')
+        wrap.place(relx=0.5, rely=0.5, anchor='center')
+
+        Label(wrap, text="Skladište Pogon", bg='white',
+              font=("times new roman", 18, "bold")).pack(pady=(0, 16))
+
+        btn_width = 26
+        pady = 6
+
+        Button(wrap, text="Ulaz robe",
+               font=("times new roman", 14),
+               state="disabled",
+               width=btn_width).pack(pady=pady, fill='x')
+
+        Button(wrap, text="Izlaz robe",
+               font=("times new roman", 14),
+               state="disabled",
+               width=btn_width).pack(pady=pady, fill='x')
+
+        Button(wrap, text="Provjeri stanje",
+               font=("times new roman", 14),
+               state="disabled",
+               width=btn_width).pack(pady=pady, fill='x')
+
+        Button(wrap, text="Statistika",
+               font=("times new roman", 14),
+               state="disabled",
+               width=btn_width).pack(pady=pady, fill='x')
+
+        Button(wrap, text="Natrag",
+               font=("times new roman", 14),
+               command=self.show_main_menu,
+               width=btn_width).pack(pady=(pady, 0), fill='x')
+
+    def show_hladnjaca_menu(self):
+        self._clear_content()
+
+        wrap = Frame(self.content, bg='white')
+        wrap.place(relx=0.5, rely=0.5, anchor='center')
+
+        Label(wrap, text="Skladište Hladnjača", bg='white',
+              font=("times new roman", 18, "bold")).pack(pady=(0, 16))
+
+        btn_width = 26
+        pady = 6
+
+        Button(wrap, text="Ulaz robe",
+               font=("times new roman", 14),
+               command=lambda: UlazHladnjaca(self),
+               width=btn_width).pack(pady=pady, fill='x')
+
+        Button(wrap, text="Izlaz robe",
+               font=("times new roman", 14),
+               command=lambda: IzlazHladnjaca(self),
+               width=btn_width).pack(pady=pady, fill='x')
+
+        Button(wrap, text="Provjeri stanje",
+               font=("times new roman", 14),
+               command=lambda: StanjeHladnjaca(self),
+               width=btn_width).pack(pady=pady, fill='x')
+
+        Button(wrap, text="Statistika",
+               font=("times new roman", 14),
+               state="disabled",
+               width=btn_width).pack(pady=pady, fill='x')
+
+        Button(wrap, text="Natrag",
+               font=("times new roman", 14),
+               command=self.show_main_menu,
+               width=btn_width).pack(pady=(pady, 0), fill='x')
 
 
 def run():
-    Dashboard().mainloop()
+    app = Dashboard()
+    app.mainloop()
 
 
 if __name__ == "__main__":
