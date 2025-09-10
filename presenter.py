@@ -166,6 +166,7 @@ def fetch_ulazi(limit: int = 200) -> List[Dict[str, Any]]:
         p.naziv AS proizvod,
         dn.kolicina AS kolicina,
         DATE_FORMAT(n.datumPrimitka, '%d.%m.%Y') AS datum_primitka,
+        DATE_FORMAT(n.datumNarudzbe, '%d.%m.%Y')  AS datum_narudzbe
     FROM DetaljiNarudzbe dn
     JOIN Narudzba  n ON n.idNarudzba = dn.idNarudzba
     JOIN Proizvod  p ON p.idProizvod = dn.idProizvod
@@ -213,7 +214,7 @@ def create_izlaz(
 
     for pid, qty, _ in stavke:
         if not _can_issue(pid, qty):
-            raise ValueError("Nedovoljno na skladištu za neke stavke.")
+            raise ValueError("Nedovoljno na skladištu za neke od odabranih stavki.")
 
     today = date.today().strftime("%Y-%m-%d")
     
@@ -283,6 +284,91 @@ def fetch_izlazi(limit: int = 200) -> List[Dict[str, Any]]:
         with conn.cursor(dictionary=True) as cur:
             cur.execute(sql, (limit,))
             return cur.fetchall()
+    finally:
+        conn.close()
+
+def fetch_otpremnica_full(idOt: int) -> dict:
+    """
+    Vrati:
+    {
+      "header": {
+          "idOtpremnica": int,
+          "idKontakt": int,
+          "brojOtpremnice": str|None,
+          "datumIsporuke": "YYYY-MM-DD"
+      },
+      "stavke": [  # LISTA DICT-OVA
+          {"idProizvod": int, "proizvod": str, "kolicina": int, "cijena": float|None},
+          ...
+      ]
+    }
+    """
+    conn = get_conn()
+    try:
+        with conn.cursor(dictionary=True) as cur:
+            cur.execute("""
+                SELECT o.idOtpremnica, o.idKontakt, o.brojOtpremnice,
+                       DATE_FORMAT(o.datumIsporuke, '%%Y-%%m-%%d') AS datumIsporuke
+                FROM Otpremnica o
+                WHERE o.idOtpremnica=%s
+            """, (idOt,))
+            header = cur.fetchone()
+            if not header:
+                raise ValueError("Otpremnica ne postoji.")
+
+            cur.execute("""
+                SELECT doo.idProizvod,
+                       p.naziv   AS proizvod,
+                       doo.kolicina,
+                       doo.cijena
+                FROM DetaljiOtpremnice doo
+                JOIN Proizvod p ON p.idProizvod = doo.idProizvod
+                WHERE doo.idOtpremnica=%s
+                ORDER BY doo.idDetaljiOtpremnice
+            """, (idOt,))
+            rows = cur.fetchall()  # list[dict]
+            # pazimo da je kolicina int
+            for r in rows:
+                r["kolicina"] = int(r["kolicina"])
+
+            return {"header": header, "stavke": rows}
+    finally:
+        conn.close()
+
+def fetch_otpremnica_stavke(idOt: int):
+    return fetch_otpremnica_full(idOt)["stavke"]
+
+def fetch_stavke_as_tuples(idOt: int):
+    items = fetch_otpremnica_full(idOt)["stavke"]
+    return [(it["idProizvod"], it["proizvod"], it["kolicina"], it["cijena"]) for it in items]
+
+def update_otpremnica_full(
+    idOt: int,
+    new_idKontakt: int,
+    new_datumIsporuke: str,  # 'YYYY-MM-DD'
+    new_broj: str,
+    stavke: list[tuple[int, int, Optional[float]]],  # [(idProizvod, kolicina, cijena_or_None), ...]
+) -> None:
+    conn = get_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                UPDATE Otpremnica
+                   SET idKontakt=%s, datumIsporuke=%s, brojOtpremnice=%s
+                 WHERE idOtpremnica=%s
+            """, (new_idKontakt, new_datumIsporuke, new_broj, idOt))
+
+            # zamjena svih stavki (trigeri će korigirati zalihe: DELETE vrati, INSERT skine)
+            cur.execute("DELETE FROM DetaljiOtpremnice WHERE idOtpremnica=%s", (idOt,))
+            for pid, qty, cij in stavke:
+                cur.execute("""
+                    INSERT INTO DetaljiOtpremnice (idOtpremnica, idProizvod, kolicina, cijena)
+                    VALUES (%s, %s, %s, %s)
+                """, (idOt, pid, qty, cij))
+        conn.commit()
+    except:
+        conn.rollback()
+        raise
     finally:
         conn.close()
 

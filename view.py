@@ -19,7 +19,7 @@ from presenter import (
     # ulaz
     create_ulaz, update_ulaz, fetch_ulazi,
     # izlaz
-    create_izlaz, update_izlaz, fetch_izlazi,
+    create_izlaz, update_izlaz, fetch_izlazi, update_otpremnica_full, fetch_otpremnica_stavke, fetch_otpremnica_full, fetch_stavke_as_tuples,
     # stanje
     fetch_stanje,
     # kontakti
@@ -109,12 +109,12 @@ class UlazHladnjaca(Frame):
             font=("times new roman", 20)).place(x=10, y=10)
 
         tv_container = Frame(right, bg='white'); tv_container.place(x=10, y=50, width=360, height=400)
-        self.tv = ttk.Treeview(tv_container, columns=("row_id","idNar","idKon","idPro","kontakt","proizvod","kolicina","datum_primitka"), show='headings')
+        self.tv = ttk.Treeview(tv_container, columns=("row_id","idNar","idKon","idPro","kontakt","proizvod","kolicina","datum_primitka","datum_narudzbe"), show='headings')
         self.tv.pack(side='left', fill='both', expand=True)
         vs = Scrollbar(tv_container, orient=VERTICAL, command=self.tv.yview); vs.pack(side='right', fill=Y)
         self.tv.configure(yscrollcommand=vs.set)
 
-        for c in ("row_id","idNar","idKon","idPro"):
+        for c in ("row_id","idNar","idKon","idPro","datum_narudzbe"):
             self.tv.heading(c, text=c); self.tv.column(c, width=1, stretch=False)
         self.tv.heading("kontakt", text="Kontakt")
         self.tv.heading("proizvod", text="Proizvod")
@@ -167,7 +167,7 @@ class UlazHladnjaca(Frame):
         for r in rows:
             self.tv.insert("", "end", values=(
                 r["row_id"], r["idNarudzba"], r["idKontakt"], r["idProizvod"],
-                r["kontakt"], r["proizvod"], r["kolicina"], r["datum_primitka"]
+                r["kontakt"], r["proizvod"], r["kolicina"], r["datum_primitka"], r["datum_narudzbe"]
             ))
 
     def on_select(self, _=None):
@@ -175,7 +175,7 @@ class UlazHladnjaca(Frame):
         if not sel: return
         vals = self.tv.item(sel[0], "values")
         # redoslijed: row_id,idNar,idKon,idPro,kontakt,proizvod,kolicina,dat_pr
-        _, dat_nar, _, _, kontakt, proizvod, kolicina, dat_pr = vals
+        _, _, _, _, kontakt, proizvod, kolicina, dat_pr, dat_na = vals
         self.kontakt_var.set(kontakt)
         self.proizvod_var.set(proizvod)
         self.e_kolicina.delete(0, END); self.e_kolicina.insert(0, kolicina)
@@ -186,6 +186,14 @@ class UlazHladnjaca(Frame):
                 self.w_dat_pr.set_date(d)
             else:
                 pass
+        except:
+            pass
+        try:
+            d = datetime.strptime(dat_na, "%d.%m.%Y").date()
+            if hasattr(self.w_dat_na, "set_date"):
+                self.w_dat_na.set_date(d)
+            else:
+                self.w_dat_na.delete(0, END); self.w_dat_na.insert(0, dat_na)
         except:
             pass
 
@@ -232,30 +240,53 @@ class IzlazHladnjaca(Frame):
         left = Frame(self, bg='white'); left.place(x=10, y=50, width=380, height=500)
         Label(left, text="Unos izlaza", bg='white', font=("times new roman", 20)).grid(row=0, column=0, columnspan=2, padx=10, pady=10)
 
-        Label(left, text="Kontakt:", bg='white').grid(row=1, column=0, sticky='e', padx=10, pady=6)
+        Label(left, text="Kontakt:", bg='white').grid(row=6, column=0, sticky='e', padx=10, pady=6)
         self.kontakti = fetch_kontakti()
         self.kontakt_id_by_name = {k.naziv: k.idKontakt for k in self.kontakti}
         self.kontakt_var = StringVar()
         self.cb_kontakt = ttk.Combobox(left, textvariable=self.kontakt_var, values=[k.naziv for k in self.kontakti], state="readonly")
-        self.cb_kontakt.grid(row=1, column=1, sticky='w', padx=10, pady=6)
+        self.cb_kontakt.grid(row=6, column=1, sticky='w', padx=10, pady=6)
 
-        Label(left, text="Proizvod:", bg='white').grid(row=2, column=0, sticky='e', padx=10, pady=6)
+        Label(left, text="Proizvod:", bg='white').grid(row=1, column=0, sticky='e', padx=10, pady=6)
         self.proizvodi = fetch_proizvodi()
         self.proizvod_id_by_name = {p.naziv: p.idProizvod for p in self.proizvodi}
         self.proizvod_var = StringVar()
         self.cb_proizvod = ttk.Combobox(left, textvariable=self.proizvod_var, values=[p.naziv for p in self.proizvodi], state="readonly")
-        self.cb_proizvod.grid(row=2, column=1, sticky='w', padx=10, pady=6)
+        self.cb_proizvod.grid(row=1, column=1, sticky='w', padx=10, pady=6)
 
-        Label(left, text="Količina:", bg='white').grid(row=3, column=0, sticky='e', padx=10, pady=6)
-        self.e_kolicina = Entry(left); self.e_kolicina.grid(row=3, column=1, sticky='w', padx=10, pady=6)
+        Label(left, text="Količina:", bg='white').grid(row=2, column=0, sticky='e', padx=10, pady=6)
+        self.e_kolicina = Entry(left); self.e_kolicina.grid(row=2, column=1, sticky='w', padx=10, pady=6)
 
-        Label(left, text="Datum isporuke:", bg='white').grid(row=4, column=0, sticky='e', padx=10, pady=6)
-        self.w_dat_isporuke = _get_date_widget(left); self.w_dat_isporuke.grid(row=4, column=1, sticky='w', padx=10, pady=6)
+        Label(left, text="Cijena:", bg='white').grid(row=3, column=0, sticky='e', padx=10, pady=6)
+        self.e_cijena = Entry(left); self.e_cijena.grid(row=3, column=1, sticky='w', padx=10, pady=6)
 
-        Label(left, text="Broj otpremnice:", bg='white').grid(row=5, column=0, sticky='e', padx=10, pady=6)
-        self.e_broj = Entry(left); self.e_broj.grid(row=5, column=1, sticky='w', padx=10, pady=6)
+        Label(left, text="Datum isporuke:", bg='white').grid(row=7, column=0, sticky='e', padx=10, pady=6)
+        self.w_dat_isporuke = _get_date_widget(left); self.w_dat_isporuke.grid(row=7, column=1, sticky='w', padx=10, pady=6)
 
-        Button(left, text="Unesi izlaz", command=self.on_unesi).grid(row=6, column=0, columnspan=2, pady=10)
+        Label(left, text="Broj otpremnice:", bg='white').grid(row=8, column=0, sticky='e', padx=10, pady=6)
+        self.e_broj = Entry(left); self.e_broj.grid(row=8, column=1, sticky='w', padx=10, pady=6)
+
+        self.stavke = []  # lista dictova: {"idProizvod":..., "naziv":..., "kolicina":..., "cijena": Optional[float]}
+
+        # tablica stavki (lokalna košarica prije spremanja)
+        box = Frame(left, bg='white'); box.grid(row=5, column=0, columnspan=2, sticky='nsew', padx=0, pady=(4,0))
+        self.tv_stavke = ttk.Treeview(box, columns=("proizvod","kolicina","cijena"), show='headings', height=7)
+        self.tv_stavke.heading("proizvod", text="Proizvod")
+        self.tv_stavke.heading("kolicina", text="Količina")
+        self.tv_stavke.heading("cijena", text="Cijena")
+        self.tv_stavke.column("proizvod", width=160)
+        self.tv_stavke.column("kolicina", width=80, anchor='e')
+        self.tv_stavke.column("cijena", width=80, anchor='e')
+        self.tv_stavke.pack(side='left', fill='both', expand=True)
+        vs1 = Scrollbar(box, orient=VERTICAL, command=self.tv_stavke.yview); vs1.pack(side='right', fill=Y)
+        self.tv_stavke.configure(yscrollcommand=vs1.set)
+
+        btns = Frame(left, bg='white'); btns.grid(row=4, column=0, columnspan=2, pady=6)
+        Button(btns, text="Dodaj stavku", command=self.on_dodaj_stavku).pack(side='left', padx=3)
+        Button(btns, text="Ukloni stavku", command=self.on_ukloni_stavku).pack(side='left', padx=3)
+        Button(btns, text="Isprazni", command=self.on_clear_stavke).pack(side='left', padx=3)
+
+        Button(left, text="Kreiraj otpremnicu", command=self.on_unesi).grid(row=9, column=0, columnspan=2, pady=10)
 
         right = Frame(self, bg='white'); right.place(x=410, y=50, width=380, height=500)
         Label(right, text="Popis izlaza", bg='white', font=("times new roman", 20)).place(x=10, y=10)
@@ -282,29 +313,45 @@ class IzlazHladnjaca(Frame):
 
         self.tv.bind("<<TreeviewSelect>>", self.on_select)
 
-        Button(right, text="Ažuriraj odabrani", command=self.on_update).place(x=10, y=460)
+        self._left_widgets = [
+            self.cb_kontakt, self.cb_proizvod, self.e_kolicina,
+            self.e_cijena, self.w_dat_isporuke, self.e_broj
+        ]
+
+        Button(right, text="Ažuriraj odabrani", command=self.on_open_editor).place(x=10, y=460)
 
         self.load_izlazi()
 
     def on_unesi(self):
         try:
-            if not self.kontakt_var.get() or not self.proizvod_var.get():
-                raise ValueError("Odaberi kontakt i proizvod.")
+            if not self.kontakt_var.get():
+                raise ValueError("Odaberi kontakt.")
             idKontakt = self.kontakt_id_by_name[self.kontakt_var.get()]
-            idProizvod = self.proizvod_id_by_name[self.proizvod_var.get()]
-            kolicina = int(self.e_kolicina.get().strip())
-            if kolicina <= 0: raise ValueError("Količina mora biti > 0.")
+            if not self.stavke:
+                raise ValueError("Dodaj barem jednu stavku.")
             d_isporuke = _parse_ddmmyyyy_to_iso(self.w_dat_isporuke.get())
             broj = (self.e_broj.get() or "").strip()
-            if not broj: raise ValueError("Upiši broj otpremnice.")
+            if not broj: 
+                raise ValueError("Upiši broj otpremnice.")
+    
+            stavke_arg = []
+            for s in self.stavke:
+                cij = s.get("cijena")
+                if cij is None:
+                    cij = 0.0
+                stavke_arg.append((s["idProizvod"], s["kolicina"], cij))
 
-            idOt = create_izlaz(
-                idKontakt=idKontakt,
-                datumIsporuke=d_isporuke,
-                brojOtpremnice=broj,
-                stavke=[(idProizvod, kolicina, None)]
+            ot = create_izlaz(
+            idKontakt=idKontakt,
+            datumIsporuke=d_isporuke,
+            brojOtpremnice=broj,
+            stavke=stavke_arg
             )
-            messagebox.showinfo("OK", f"Otpremnica #{idOt.brojOtpremnice} spremljena.")
+            messagebox.showinfo("OK", f"Izdan izlaz #{ot.idOtpremnica}.")
+            # reset form
+            self.stavke.clear(); self._refresh_stavke_tv()
+            self.cb_kontakt.set(""); self.cb_proizvod.set("")
+            self.e_kolicina.delete(0, END); self.e_broj.delete(0, END)
             self.load_izlazi()
         except Exception as e:
             messagebox.showerror("Greška", str(e))
@@ -320,10 +367,16 @@ class IzlazHladnjaca(Frame):
 
     def on_select(self, _=None):
         sel = self.tv.selection()
-        if not sel: return
+        if not sel: 
+            self._selected_id_ot = None
+            self._set_left_enabled(True)
+            return
+        
         vals = self.tv.item(sel[0], "values")
         # row_id,idOt,idKon,idPro,kontakt,proizvod,kolicina,broj,dat
-        _, _, _, _, kontakt, proizvod, kolicina, broj, dat = vals
+        _, idOt, _, _, kontakt, proizvod, kolicina, broj, dat = vals
+        self._selected_id_ot = int(idOt) 
+
         self.kontakt_var.set(kontakt)
         self.proizvod_var.set(proizvod)
         self.e_kolicina.delete(0, END); self.e_kolicina.insert(0, kolicina)
@@ -332,7 +385,30 @@ class IzlazHladnjaca(Frame):
             if _HAS_CAL:
                 d = datetime.strptime(dat, "%d.%m.%Y").date()
                 self.w_dat_isporuke.set_date(d)
-        except: pass
+        except: 
+            pass
+
+        try:
+            idOt = int(idOt)
+        except:
+            return
+        
+        items = fetch_otpremnica_stavke(idOt)
+
+        self.stavke.clear()
+        self.tv_stavke.delete(*self.tv_stavke.get_children())
+
+        for it in items:
+            self.stavke.append({
+                "idProizvod": it["idProizvod"],
+                "naziv": it["proizvod"],
+                "kolicina": int(it["kolicina"]),
+                "cijena": it["cijena"],
+            })
+            self.tv_stavke.insert("", "end",
+        values=(it["proizvod"], int(it["kolicina"]), "" if it["cijena"] is None else f"{it['cijena']:.2f}"))
+
+        self._set_left_enabled(False)
 
     def on_update(self):
         sel = self.tv.selection()
@@ -359,6 +435,304 @@ class IzlazHladnjaca(Frame):
             )
             messagebox.showinfo("OK", "Zapis ažuriran.")
             self.load_izlazi()
+        except Exception as e:
+            messagebox.showerror("Greška", str(e))
+    
+    def on_dodaj_stavku(self):
+        try:
+            naziv = self.proizvod_var.get().strip()
+            if not naziv:
+                raise ValueError("Odaberi proizvod.")
+            pid = self.proizvod_id_by_name[naziv]
+
+            k_txt = self.e_kolicina.get().strip()
+            if not k_txt.isdigit() or int(k_txt) <= 0:
+                raise ValueError("Količina mora biti pozitivan cijeli broj.")
+            kolicina = int(k_txt)
+
+            cijena_txt = self.e_cijena.get().strip()
+            cijena = float(cijena_txt) if cijena_txt else None
+
+            # ako isti proizvod već postoji u košarici -> zbroji
+            for s in self.stavke:
+                if s["idProizvod"] == pid and s.get("cijena") == cijena:
+                    s["kolicina"] += kolicina
+                    break
+            else:
+                self.stavke.append({"idProizvod": pid, "naziv": naziv, "kolicina": kolicina, "cijena": cijena})
+
+            self._refresh_stavke_tv()
+
+            # reset polja za brzi unos sljedeće stavke
+            self.proizvod_var.set("")
+            self.e_kolicina.delete(0, END)
+            self.e_cijena.delete(0, END)
+
+        except Exception as e:
+            messagebox.showerror("Greška", str(e))
+
+    def on_ukloni_stavku(self):
+        sel = self.tv_stavke.selection()
+        if not sel:
+            return
+        iid = sel[0]
+        vals = self.tv_stavke.item(iid, "values")
+        # values: (naziv, kolicina, cijena)
+        naziv = vals[0]
+        kolicina = int(vals[1])
+        cijena = None if vals[2] in ("", None) else float(vals[2].replace(",", "."))
+        for i, s in enumerate(self.stavke):
+            if s["naziv"] == naziv and s["kolicina"] == kolicina and (s.get("cijena") == cijena):
+                self.stavke.pop(i)
+                break
+        self._refresh_stavke_tv()
+
+    def on_clear_stavke(self):
+        self.stavke.clear()
+        self._refresh_stavke_tv()
+
+    def _refresh_stavke_tv(self):
+        self.tv_stavke.delete(*self.tv_stavke.get_children())
+        for s in self.stavke:
+            c_txt = "" if s["cijena"] is None else f"{s['cijena']:.2f}"
+            self.tv_stavke.insert("", "end", values=(s["naziv"], s["kolicina"], c_txt))
+
+    def _set_left_enabled(self, enabled: bool):
+        state = "readonly" if enabled else "disabled"
+        # Combobox: 'readonly' ↔ 'disabled', Entry: 'normal' ↔ 'disabled'
+        self.cb_kontakt.configure(state=state)
+        self.cb_proizvod.configure(state=state)
+        self.e_kolicina.configure(state=("normal" if enabled else "disabled"))
+        self.e_cijena.configure(state=("normal" if enabled else "disabled"))
+        try:
+            # DateEntry ima 'state', Entry fallback nema; probaj:
+            self.w_dat_isporuke.configure(state=("normal" if enabled else "disabled"))
+        except Exception:
+            pass
+        self.e_broj.configure(state=("normal" if enabled else "disabled"))
+    
+    def on_open_editor(self):
+        if not self._selected_id_ot:
+            messagebox.showwarning("Upozorenje", "Odaberi red (otpremnicu) za uređivanje.")
+            return
+        OtpremnicaEditor(self, self._selected_id_ot, self.kontakti, self.proizvodi,
+                         on_saved=self._after_editor_saved)
+
+    def _after_editor_saved(self):
+        # poziva editor nakon uspjeha
+        self.load_izlazi()
+        self._set_left_enabled(True)
+        self._selected_id_ot = None
+
+
+class OtpremnicaEditor(Toplevel):
+    """
+    Editor kompletne otpremnice:
+      - zaglavlje (kontakt, datum isporuke, broj)
+      - sve stavke (dodaj/ukloni/izmijeni)
+      - Spremi izmjene -> update_otpremnica_full(...)
+    """
+    def __init__(self, master, idOt: int, kontakti, proizvodi, on_saved=None):
+        super().__init__(master)
+        self.title(f"Uredi otpremnicu #{idOt}")
+        self.geometry("640x520")
+        self.resizable(False, False)
+        self.idOt = idOt
+        self.on_saved = on_saved
+
+        self.kontakti = kontakti
+        self.proizvodi = proizvodi
+        self.kontakt_id_by_name = {k.naziv: k.idKontakt for k in kontakti}
+        self.proizvod_id_by_name = {p.naziv: p.idProizvod for p in proizvodi}
+
+        # --- Zaglavlje ---
+        top = Frame(self); top.pack(fill='x', padx=10, pady=10)
+
+        Label(top, text="Kontakt:").grid(row=0, column=0, sticky='e', padx=6, pady=4)
+        self.kontakt_var = StringVar()
+        self.cb_kontakt = ttk.Combobox(top, textvariable=self.kontakt_var,
+                                       values=[k.naziv for k in kontakti], state="readonly", width=40)
+        self.cb_kontakt.grid(row=0, column=1, sticky='w', padx=6, pady=4)
+
+        Label(top, text="Datum isporuke:").grid(row=1, column=0, sticky='e', padx=6, pady=4)
+        self.w_dat = _get_date_widget(top)
+        self.w_dat.grid(row=1, column=1, sticky='w', padx=6, pady=4)
+
+        Label(top, text="Broj otpremnice:").grid(row=2, column=0, sticky='e', padx=6, pady=4)
+        self.e_broj = Entry(top, width=30); self.e_broj.grid(row=2, column=1, sticky='w', padx=6, pady=4)
+
+        # --- Stavke ---
+        box = Frame(self); box.pack(fill='both', expand=True, padx=10, pady=(0,10))
+
+        # Dodavanje/izmjena stavke
+        form = Frame(box); form.pack(fill='x')
+        Label(form, text="Proizvod:").grid(row=0, column=0, sticky='e', padx=6, pady=4)
+        self.proizvod_var = StringVar()
+        self.cb_proiz = ttk.Combobox(form, textvariable=self.proizvod_var,
+                                     values=[p.naziv for p in proizvodi], state="readonly", width=35)
+        self.cb_proiz.grid(row=0, column=1, sticky='w', padx=6, pady=4)
+
+        Label(form, text="Količina:").grid(row=0, column=2, sticky='e', padx=4, pady=4)
+        self.e_qty = Entry(form, width=10); self.e_qty.grid(row=0, column=3, sticky='w', padx=6, pady=4)
+
+        Label(form, text="Cijena (opcionalno):").grid(row=0, column=4, sticky='e', padx=6, pady=4)
+        self.e_cij = Entry(form, width=10); self.e_cij.grid(row=0, column=5, sticky='w', padx=6, pady=4)
+
+        Button(form, text="Dodaj stavku", command=self._add_or_update_line).grid(row=1, column=1, sticky='e', padx=3)
+
+        # Lista stavki
+        list_box = Frame(box); list_box.pack(fill='both', expand=True, pady=6)
+        self.tv = ttk.Treeview(list_box, columns=("proizvod","kolicina","cijena"), show='headings', height=10)
+        self.tv.heading("proizvod", text="Proizvod")
+        self.tv.heading("kolicina", text="Količina")
+        self.tv.heading("cijena", text="Cijena")
+        self.tv.column("proizvod", width=260)
+        self.tv.column("kolicina", width=100, anchor='e')
+        self.tv.column("cijena", width=100, anchor='e')
+        self.tv.pack(side='left', fill='both', expand=True)
+
+        vs = Scrollbar(list_box, orient=VERTICAL, command=self.tv.yview)
+        vs.pack(side=RIGHT, fill=Y)
+        self.tv.configure(yscrollcommand=vs.set)
+
+        btns = Frame(box); btns.pack(fill='x')
+        Button(btns, text="Ukloni stavku", command=self._remove_line).pack(side='left', padx=6)
+        Button(btns, text="Isprazni sve", command=self._clear_lines).pack(side='left', padx=6)
+
+        #Spremi 
+        bottom = Frame(self); bottom.pack(fill='x', padx=10, pady=(0,10))
+        Button(bottom, text="Spremi izmjene", command=self._save).pack(side='right')
+
+        # podaci trenutne otpremnice
+        self._lines: list[tuple[str,int,Optional[float]]] = []  # [(naziv, količina, cijena_or_None), ...]
+        self._load_current()
+
+        # double-click na listu -> ubaci vrijednosti u form za izmjenu
+        self.tv.bind("<Double-1>", self._on_pick_line)
+
+    def _load_current(self):
+        data = fetch_otpremnica_full(self.idOt)
+        if not data:
+            messagebox.showerror("Greška", "Ne mogu učitati podatke otpremnice.")
+            self.destroy()
+            return
+        
+        hdr = data["header"]
+        idk = hdr["idKontakt"]
+        idK = int(idk) if idk is not None else None
+        # pronađi naziv:
+        name_k = None
+        for k in self.kontakti:
+            if k.idKontakt == idK:
+                name_k = k.naziv; break
+        if name_k:
+            self.kontakt_var.set(name_k)
+
+        # datum (YYYY-MM-DD -> widget)
+        iso = hdr["datumIsporuke"]
+        try:
+            if _HAS_CAL:
+                d = datetime.strptime(iso, "%Y-%m-%d").date()
+                self.w_dat.set_date(d)
+            else:
+                self.w_dat.delete(0, END)
+                self.w_dat.insert(0, datetime.strptime(iso, "%Y-%m-%d").strftime("%d.%m.%Y"))
+        except:
+            pass
+
+        self.e_broj.delete(0, END); self.e_broj.insert(0, hdr["brojOtpremnice"] or "")
+
+        # stavke
+        self._lines.clear()
+        for it in data["stavke"]:
+            naziv = it["proizvod"]
+            qty = int(it["kolicina"])
+            cij = it["cijena"]  # može biti None
+            self._lines.append((naziv, qty, (None if cij is None else float(cij))))
+        self._refresh_tv()
+
+    def _refresh_tv(self):
+        self.tv.delete(*self.tv.get_children())
+        for naziv, qty, cij in self._lines:
+            cij_txt = "" if cij is None else f"{cij:.2f}"
+            self.tv.insert("", "end", values=(naziv, qty, cij_txt))
+
+    def _on_pick_line(self, _event=None):
+        sel = self.tv.selection()
+        if not sel: return
+        naziv, qty, cij_txt = self.tv.item(sel[0], "values")
+        self.proizvod_var.set(naziv)
+        self.e_qty.delete(0, END); self.e_qty.insert(0, qty)
+        self.e_cij.delete(0, END); self.e_cij.insert(0, cij_txt)
+
+    def _add_or_update_line(self):
+        name = (self.proizvod_var.get() or "").strip()
+        if not name or name not in self.proizvod_id_by_name:
+            messagebox.showwarning("Upozorenje", "Odaberite proizvod.")
+            return
+        try:
+            qty = int((self.e_qty.get() or "0").strip())
+            if qty <= 0: raise ValueError
+        except:
+            messagebox.showwarning("Upozorenje", "Količina mora biti pozitivan cijeli broj.")
+            return
+        cij_s = (self.e_cij.get() or "").strip()
+        cij = None if cij_s == "" else float(cij_s.replace(",", "."))
+
+        # ako već postoji isti proizvod -> zamijeni
+        replaced = False
+        for i, (n, _, _) in enumerate(self._lines):
+            if n == name:
+                self._lines[i] = (name, qty, cij)
+                replaced = True
+                break
+        if not replaced:
+            self._lines.append((name, qty, cij))
+        self._refresh_tv()
+
+    def _remove_line(self):
+        sel = self.tv.selection()
+        if not sel: return
+        naziv, *_ = self.tv.item(sel[0], "values")
+        self._lines = [t for t in self._lines if t[0] != naziv]
+        self._refresh_tv()
+
+    def _clear_lines(self):
+        if messagebox.askyesno("Potvrda", "Ukloniti sve stavke?"):
+            self._lines.clear()
+            self._refresh_tv()
+
+    def _save(self):
+        # validacija headera
+        name_k = (self.kontakt_var.get() or "").strip()
+        if not name_k or name_k not in self.kontakt_id_by_name:
+            messagebox.showwarning("Upozorenje", "Odaberi kontakt.")
+            return
+        if not self._lines:
+            messagebox.showwarning("Upozorenje", "Dodaj barem jednu stavku.")
+            return
+
+        idKontakt = self.kontakt_id_by_name[name_k]
+        # datum -> ISO
+        if _HAS_CAL:
+            d = self.w_dat.get_date()
+            iso = d.strftime("%Y-%m-%d")
+        else:
+            iso = datetime.strptime(self.w_dat.get().strip(), "%d.%m.%Y").strftime("%Y-%m-%d")
+        broj = (self.e_broj.get() or "").strip()
+
+        # mapiraj nazive u (idProizvod, qty, cijena)
+        stavke = []
+        for naziv, qty, cij in self._lines:
+            pid = self.proizvod_id_by_name[naziv]
+            stavke.append((pid, qty, cij))
+
+        try:
+            update_otpremnica_full(self.idOt, idKontakt, iso, broj, stavke)
+            messagebox.showinfo("OK", "Otpremnica je ažurirana.")
+            if self.on_saved:
+                self.on_saved()
+            self.destroy()
         except Exception as e:
             messagebox.showerror("Greška", str(e))
 
